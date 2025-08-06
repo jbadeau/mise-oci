@@ -1,0 +1,13 @@
+[tools]
+go = "latest"
+lua = "latest"
+oras = "latest"
+python = "latest"
+yq = "latest"
+
+[tasks.init]
+description = "Init"
+run = "mise plugin link nix $PWD --force"
+
+[settings]
+experimental=true
