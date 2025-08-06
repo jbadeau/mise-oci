@@ -1,13 +1,14 @@
 [tools]
 go = "latest"
 lua = "latest"
+"oci:docker.io/jbadeau/azul-zulu" = "latest"
 oras = "latest"
 python = "latest"
 yq = "latest"
 
 [tasks.init]
 description = "Init"
-run = "mise plugin link nix $PWD --force"
+run = "mise plugin link oci $PWD --force"
 
 [settings]
 experimental=true

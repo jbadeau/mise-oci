@@ -13,12 +13,6 @@ mise generate tool-stub azul-zulu-17.60.17.toml \
   --platform-url windows-arm64:https://cdn.azul.com/zulu/bin/zulu17.60.17-ca-jdk17.0.16-win_aarch64.zip
 ```
 
-## Publish Mise stub as OCI artifact to local docker registry
-
-```shell
-./publish.sh azul-zulu-17.60.17.toml localhost:5000
-```
-
 ## Publish Mise stub as OCI artifact to dockerhub
 
 ```shell

@@ -30,29 +30,29 @@ mise plugin install oci https://github.com/jbadeau/mise-oci.git
 ### List Available Versions
 
 ```sh
-mise ls-remote oci:helmfile
+mise ls-remote oci:docker.io/jbadeau/azul-zulu
 ```
 
 ### Install a Specific Version
 
 ```sh
-mise install oci:helmfile@1.1.2
+mise install oci:docker.io/jbadeau/azul-zulu@17.60.17
 ```
 
 Install the latest version:
 
 ```sh
-mise install oci:helmfile
+mise install oci:docker.io/jbadeau/azul-zulu
 ```
 
 ### Use in a Project
 
 ```sh
-mise use oci:helmfile@1.1.2
+mise use oci:docker.io/jbadeau/azul-zulu
 ```
 
 ### Run the Tool
 
 ```sh
-mise exec -- helmfile --version
+mise exec oci:docker.io/jbadeau/azul-zulu -- java --version
 ```

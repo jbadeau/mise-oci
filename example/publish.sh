@@ -146,47 +146,124 @@ process_platforms() {
       echo "⚠️  No checksum provided, skipping verification"
     fi
 
-    # Detect format from filename
+    # Detect format from filename and use MTA media types
     case "$filename" in
-      *.tar.gz)   media_type="application/vnd.oci.image.layer.v1.tar+gzip" ;;
-      *.tar.xz)   media_type="application/vnd.oci.image.layer.v1.tar+xz" ;;
-      *.tar.zst)  media_type="application/vnd.oci.image.layer.v1.tar+zstd" ;;
-      *.zip)      media_type="application/zip" ;;
-      *.vsix)     media_type="application/vnd.microsoft.vscode.vsix" ;;
-      *)          media_type="application/octet-stream" ;;
+      *.tar.gz)   media_type="application/vnd.mise.tool.layer.v1.tar+gzip" ;;
+      *.tar.xz)   media_type="application/vnd.mise.tool.layer.v1.tar+xz" ;;
+      *.tar.zst)  media_type="application/vnd.mise.tool.layer.v1.tar+zstd" ;;
+      *.zip)      media_type="application/vnd.mise.tool.layer.v1.zip" ;;
+      *.vsix)     media_type="application/vnd.mise.tool.layer.v1.vsix" ;;
+      *)          media_type="application/vnd.mise.tool.layer.v1.bin" ;;
     esac
 
-    # Add platform-specific annotations to the file
+    # Add MTA-compliant annotations to the file
     platform_files+=("$filename:$media_type")
     platform_annotations+=(
-      "--annotation" "$filename:org.opencontainers.image.title=$filename"
-      "--annotation" "$filename:org.opencontainers.image.platform=$os/$arch"
-      "--annotation" "$filename:org.opencontainers.image.download=$url"
+      "--annotation" "$filename:org.mise.tool.filename=$filename"
+      "--annotation" "$filename:org.mise.tool.executable=$bin_path"
+      "--annotation" "$filename:org.mise.tool.checksum.blake3=blake3:$expected_checksum"
+      "--annotation" "$filename:org.mise.download.url=$url"
+      "--annotation" "$filename:org.mise.download.size=$(stat -c%s "$filename" 2>/dev/null || stat -f%z "$filename" 2>/dev/null || echo '0')"
     )
 
   done < <(tomlq -r '.platforms | keys[]' "$mise_stub_file")
 
   # Create single OCI artifact with all platform files as layers
   local final_ref="${image_name}:${tag}"
-  echo "📦 Creating OCI artifact: $final_ref"
+  echo "📦 Creating MTA artifact: $final_ref"
   
-  echo "{\"architecture\":\"multi\",\"os\":\"multi\"}" > config.json
-  config_media_type="application/vnd.oci.image.config.v1+json"
+  # Create MTA-compliant config object
+  create_mta_config "$mise_stub_file" > config.json
+  config_media_type="application/vnd.mise.tool.v1+json"
 
   oras push "$final_ref" \
     --config "config.json:$config_media_type" \
     "${platform_files[@]}" \
     "${platform_annotations[@]}" \
-    --annotation "org.opencontainers.image.description=$description" \
-    --annotation "org.opencontainers.image.version=$version" \
-    --annotation "org.opencontainers.image.authors=$authors" \
-    --annotation "org.opencontainers.image.licenses=$license" \
-    --annotation "org.opencontainers.image.source=$source" \
-    --annotation "org.opencontainers.image.documentation=$documentation" \
-    --annotation "org.opencontainers.image.vendor=$vendor" \
+    --annotation "org.mise.tool.name=$image_name_base" \
+    --annotation "org.mise.tool.version=$version" \
+    --annotation "org.mise.tool.description=$description" \
+    --annotation "org.mise.tool.homepage=$url" \
+    --annotation "org.mise.tool.documentation=$documentation" \
+    --annotation "org.mise.tool.source=$source" \
+    --annotation "org.mise.tool.license=$license" \
+    --annotation "org.mise.tool.vendor=$vendor" \
     --annotation "org.opencontainers.image.created=$created" \
-    --annotation "org.opencontainers.image.ref.name=$tag"
+    --annotation "org.opencontainers.image.authors=$authors"
 }
 
+create_mta_config() {
+  local mise_stub_file="$1"
+  
+  # Extract platform data for config
+  local platforms_json="{}"
+  while IFS= read -r platform_key; do
+    platform_key=$(echo "$platform_key" | sed 's/"//g')
+    
+    local url expected_checksum bin_path size_value
+    url=$(tomlq -r ".platforms.\"$platform_key\".url" "$mise_stub_file")
+    expected_checksum=$(tomlq -r ".platforms.\"$platform_key\".checksum // empty" "$mise_stub_file")
+    bin_path=$(tomlq -r ".platforms.\"$platform_key\".bin // \"bin/java\"" "$mise_stub_file")
+    size_value=$(tomlq -r ".platforms.\"$platform_key\".size // 0" "$mise_stub_file")
+    
+    if [[ "$url" != "null" && -n "$url" ]]; then
+      # Handle blake3: prefix
+      if [[ "$expected_checksum" =~ ^blake3: ]]; then
+        expected_checksum="${expected_checksum#blake3:}"
+      fi
+      
+      platforms_json=$(echo "$platforms_json" | jq \
+        --arg key "$platform_key" \
+        --arg url "$url" \
+        --arg checksum "blake3:$expected_checksum" \
+        --arg bin "$bin_path" \
+        --arg size "$size_value" \
+        '.[$key] = {url: $url, checksum: $checksum, bin: $bin, size: ($size | tonumber)}')
+    fi
+  done < <(tomlq -r '.platforms | keys[]' "$mise_stub_file")
+
+  # Generate MTA config JSON
+  jq -n \
+    --arg tool "$image_name_base" \
+    --arg version "$version" \
+    --arg bin "bin/java" \
+    --arg description "$description" \
+    --arg homepage "$url" \
+    --arg license "$license" \
+    --arg category "runtime" \
+    --argjson platforms "$platforms_json" \
+    --arg created "$created" \
+    '{
+      mtaSpecVersion: "1.0",
+      tool: $tool,
+      version: $version,
+      bin: $bin,
+      description: $description,
+      homepage: $homepage,
+      license: $license,
+      category: $category,
+      platforms: $platforms,
+      env: {
+        JAVA_HOME: "{{ install_path }}",
+        PATH: "{{ install_path }}/bin:{{ PATH }}"
+      },
+      post_install: [
+        "chmod +x {{ install_path }}/bin/*"
+      ],
+      validation: {
+        command: ($tool | if test("java|jdk|zulu") then "java -version" else ($tool + " --version") end),
+        expected_output_regex: ".*"
+      },
+      metadata: {
+        backends: ["http", "asdf"],
+        source: "",
+        build_info: {
+          build_date: $created,
+          build_system: "mise-mta",
+          build_version: "1.0.0"
+        }
+      }
+    }'
+}
 
 main "$@"
