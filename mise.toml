@@ -1,7 +1,6 @@
 [tools]
 go = "latest"
 lua = "latest"
-"oci:docker.io/jbadeau/azul-zulu" = "latest"
 oras = "latest"
 python = "latest"
 yq = "latest"

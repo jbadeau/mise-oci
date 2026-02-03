@@ -1,0 +1,29 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "pnpm"
+version = "10.28.2"
+
+[platforms.linux-x64]
+url = "https://github.com/pnpm/pnpm/releases/download/v10.28.2/pnpm-linux-x64"
+checksum = "blake3:e2e8e44a5b238dd7e0f1d59a60c7a27dd8a7cf2ece4707054ecba2450746f7b6"
+size = 65812715 # 62.76 MiB
+
+[platforms.linux-arm64]
+url = "https://github.com/pnpm/pnpm/releases/download/v10.28.2/pnpm-linux-arm64"
+checksum = "blake3:b8852a97166e1b96943d234d6e1d36eedeea344860fe532a45b87f6ab21afd1c"
+size = 61837987 # 58.97 MiB
+
+[platforms.darwin-x64]
+url = "https://github.com/pnpm/pnpm/releases/download/v10.28.2/pnpm-macos-x64"
+checksum = "blake3:a1f63f6a285db81571f3607807d1b72625fe81240c0eef195da59e762ae75968"
+size = 69870272 # 66.63 MiB
+
+[platforms.darwin-arm64]
+url = "https://github.com/pnpm/pnpm/releases/download/v10.28.2/pnpm-macos-arm64"
+checksum = "blake3:3bad1f3524d0939b41077681d9fec8f2153ed02b7ebda630479aa8b81a96f314"
+size = 62512528 # 59.62 MiB
+
+[platforms.windows-x64]
+url = "https://github.com/pnpm/pnpm/releases/download/v10.28.2/pnpm-win-x64.exe"
+checksum = "blake3:b5ca8078da92258ca8fa8e98367e63981678c4eb443adb992f75b152052b65b2"
+size = 53021983 # 50.57 MiB

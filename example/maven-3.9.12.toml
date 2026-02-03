@@ -1,0 +1,17 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "maven"
+version = "3.9.12"
+
+# Maven is platform-independent (Java-based)
+# Only including unique archives to avoid duplicate annotation errors
+
+[platforms.linux-x64]
+url = "https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.tar.gz"
+checksum = "blake3:07cf3b70c8b3c50ac71d7a4fae12a7fc78e8fd2f768eb2e3dfe13a7704fefa7e"
+size = 9233336 # 8.81 MiB
+
+[platforms.windows-x64]
+url = "https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.zip"
+checksum = "blake3:f6300de899a838380ece4791ed0f79d558e155bea3e503126e4a978c1735e631"
+size = 9347376 # 8.91 MiB

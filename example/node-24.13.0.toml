@@ -1,0 +1,29 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "node"
+version = "24.13.0"
+
+[platforms.linux-x64]
+url = "https://nodejs.org/dist/v24.13.0/node-v24.13.0-linux-x64.tar.gz"
+checksum = "blake3:544d7a4bfce640b6a1e4a4b1b0815324d616d33cb4a630b03e0400a9b3c352e1"
+size = 56292159 # 53.68 MiB
+
+[platforms.linux-arm64]
+url = "https://nodejs.org/dist/v24.13.0/node-v24.13.0-linux-arm64.tar.gz"
+checksum = "blake3:b65813900f718609a66c8ec8b8e3aa0b2581596fdbe28aac4997e2b65a17a50a"
+size = 56056193 # 53.46 MiB
+
+[platforms.darwin-x64]
+url = "https://nodejs.org/dist/v24.13.0/node-v24.13.0-darwin-x64.tar.gz"
+checksum = "blake3:77a4b4657c08c7dfe8effea0cbb1ca7cbb3103223d150e3d815accdef03af5f7"
+size = 52380198 # 49.95 MiB
+
+[platforms.darwin-arm64]
+url = "https://nodejs.org/dist/v24.13.0/node-v24.13.0-darwin-arm64.tar.gz"
+checksum = "blake3:3f4c070f66119f4d3e7c0049d8122942d2724c32ba322366fcfb400e2dab83f8"
+size = 51210463 # 48.84 MiB
+
+[platforms.windows-x64]
+url = "https://nodejs.org/dist/v24.13.0/node-v24.13.0-win-x64.zip"
+checksum = "blake3:a4665e4a62de6b1a6c811d90d306ce1dc2af4d0e40fb3e013ed4522ad83693cc"
+size = 36363905 # 34.68 MiB

@@ -1,0 +1,34 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "helm"
+version = "4.1.0"
+
+[platforms.linux-x64]
+url = "https://get.helm.sh/helm-v4.1.0-linux-amd64.tar.gz"
+checksum = "blake3:2f50a0db2c0b20fac187656938db8adc615d88b81836a278e010b7bddb4e1f65"
+size = 19316695 # 18.42 MiB
+bin = "helm"
+
+[platforms.linux-arm64]
+url = "https://get.helm.sh/helm-v4.1.0-linux-arm64.tar.gz"
+checksum = "blake3:fbde001b9d6f4c0a4862a2b09d02c7e76cc680dfaf20f51bce63d54e1ebe4f91"
+size = 17124389 # 16.33 MiB
+bin = "helm"
+
+[platforms.darwin-x64]
+url = "https://get.helm.sh/helm-v4.1.0-darwin-amd64.tar.gz"
+checksum = "blake3:94d5ff697468767eafaa565b855b75ace730bd56500c7c004706d0d84d7028b4"
+size = 19683191 # 18.77 MiB
+bin = "helm"
+
+[platforms.darwin-arm64]
+url = "https://get.helm.sh/helm-v4.1.0-darwin-arm64.tar.gz"
+checksum = "blake3:8a5d60a14feea0c3c6055988c4e633f1b302c0366b8cebb99c578b94582e8d4e"
+size = 17964274 # 17.13 MiB
+bin = "helm"
+
+[platforms.windows-x64]
+url = "https://get.helm.sh/helm-v4.1.0-windows-amd64.zip"
+checksum = "blake3:42e5fc2b2960de553a3541d6b0870bc41e6175b088fee9ddb236c196ff1488a5"
+size = 19793445 # 18.88 MiB
+bin = "helm.exe"

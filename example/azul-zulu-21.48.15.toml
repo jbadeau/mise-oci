@@ -1,0 +1,34 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "azul-zulu"
+version = "21.48.15"
+
+[platforms.linux-x64]
+url = "https://cdn.azul.com/zulu/bin/zulu21.48.15-ca-jdk21.0.10-linux_x64.tar.gz"
+checksum = "blake3:29afb31b7bcd76c3f59d474ba3780cffd7531ddc6da4d4ee53b956bde69f55ed"
+size = 213871305 # 203.96 MiB
+
+[platforms.linux-arm64]
+url = "https://cdn.azul.com/zulu/bin/zulu21.48.15-ca-jdk21.0.10-linux_aarch64.tar.gz"
+checksum = "blake3:7b798caf326d859003dd6eb0481ba85544a933fe7487027c5a38c7beee209bec"
+size = 213115157 # 203.24 MiB
+
+[platforms.darwin-x64]
+url = "https://cdn.azul.com/zulu/bin/zulu21.48.15-ca-jdk21.0.10-macosx_x64.tar.gz"
+checksum = "blake3:ce0f0e0adf973c38627caedc4c707fdf4661f974ed83b0dfd4684561ae4f480f"
+size = 208997107 # 199.32 MiB
+
+[platforms.darwin-arm64]
+url = "https://cdn.azul.com/zulu/bin/zulu21.48.15-ca-jdk21.0.10-macosx_aarch64.tar.gz"
+checksum = "blake3:72f8e3860bb635ee6515d54978b4d742a59dc704879dacc487693e847be8740a"
+size = 206768319 # 197.19 MiB
+
+[platforms.windows-x64]
+url = "https://cdn.azul.com/zulu/bin/zulu21.48.15-ca-jdk21.0.10-win_x64.zip"
+checksum = "blake3:a2ff2a2299e794f1d47b60a738ff95e8f146e9dc2ccda48cb22909591065c737"
+size = 211497745 # 201.70 MiB
+
+[platforms.windows-arm64]
+url = "https://cdn.azul.com/zulu/bin/zulu21.48.15-ca-jdk21.0.10-win_aarch64.zip"
+checksum = "blake3:1aa415908d741ec509bc2317e420979051ff2f0be179a3fa2aecea491e44d2d8"
+size = 198410890 # 189.22 MiB
