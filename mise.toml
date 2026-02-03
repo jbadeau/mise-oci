@@ -1,6 +1,7 @@
 [tools]
 go = "latest"
 lua = "latest"
+"oci:docker.io/jbadeau/maven" = "3.9.12"
 oras = "latest"
 python = "latest"
 yq = "latest"

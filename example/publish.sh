@@ -30,15 +30,31 @@ check_dependencies() {
 }
 
 parse_args() {
+  platform_filter=""
+
+  # Parse optional --platforms flag
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --platforms)
+        platform_filter="$2"
+        shift 2
+        ;;
+      *)
+        break
+        ;;
+    esac
+  done
+
   if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 <mise_stub_file> <registry/namespace>" >&2
+    echo "Usage: $0 [--platforms platform1,platform2] <mise_stub_file> <registry/namespace>" >&2
     echo "Example: $0 tool.toml docker.io/username" >&2
+    echo "Example: $0 --platforms linux-x64,darwin-arm64 tool.toml docker.io/username" >&2
     exit 1
   fi
 
   mise_stub_file_arg="$1"
   registry_namespace="$2"
-  
+
   # Split registry/namespace - require both parts
   if [[ "$registry_namespace" == *"/"* ]]; then
     registry="${registry_namespace%%/*}"
@@ -88,27 +104,40 @@ parse_global_annotations() {
 }
 
 normalize_platform() {
-  case "$1" in 
-    macos|darwin) os="darwin" ;; 
-    *) os="$1" ;; 
+  # Normalize to mise native platform names
+  # OS: darwin, linux, windows
+  # Arch: arm64, amd64
+  case "$1" in
+    macos) os="darwin" ;;
+    *) os="$1" ;;
   esac
-  case "$2" in 
-    x86_64|amd64) arch="amd64" ;; 
-    aarch64) arch="arm64" ;; 
-    x64) arch="amd64" ;;
-    *) arch="$2" ;; 
+  case "$2" in
+    x86_64|x64) arch="amd64" ;;
+    aarch64) arch="arm64" ;;
+    *) arch="$2" ;;
   esac
+
+  # mise platform key uses underscore separator
+  mise_platform_key="${os}_${arch}"
 }
 
 process_platforms() {
   local mise_stub_file="$1" image_name="$2" tag="$3"
   local platform_files=()
-  local platform_annotations=()
+  local layer_annotations_json="{}"
 
   # Get platform keys from TOML
   while IFS= read -r platform_key; do
     platform_key=$(echo "$platform_key" | sed 's/"//g')  # Remove quotes
-    
+
+    # Filter platforms if --platforms was specified
+    if [[ -n "$platform_filter" ]]; then
+      if ! echo ",$platform_filter," | grep -q ",$platform_key,"; then
+        echo "⏭️  Skipping platform: $platform_key (not in filter)"
+        continue
+      fi
+    fi
+
     # Extract platform data from TOML
     local url expected_checksum format bin_path
     url=$(tomlq -r ".platforms.\"$platform_key\".url" "$mise_stub_file")
@@ -127,9 +156,11 @@ process_platforms() {
 
     normalize_platform "$(echo "$platform_key" | cut -d'-' -f1)" "$(echo "$platform_key" | cut -d'-' -f2)"
 
-    filename=$(basename "$url")
-    
-    echo "📦 Downloading $filename for $os/$arch"
+    original_filename=$(basename "$url")
+    # Use platform-specific filename to avoid duplicates when same URL is used for multiple platforms
+    filename="${mise_platform_key}_${original_filename}"
+
+    echo "📦 Downloading $original_filename for $os/$arch"
     curl -fsSL -o "$filename" "$url"
 
     # Only verify checksum if provided
@@ -157,55 +188,94 @@ process_platforms() {
     esac
 
     # Add MTA-compliant annotations to the file
+    # Include mise_platform_key in title for backend_install.lua platform matching
     platform_files+=("$filename:$media_type")
-    platform_annotations+=(
-      "--annotation" "$filename:org.mise.tool.filename=$filename"
-      "--annotation" "$filename:org.mise.tool.executable=$bin_path"
-      "--annotation" "$filename:org.mise.tool.checksum.blake3=blake3:$expected_checksum"
-      "--annotation" "$filename:org.mise.download.url=$url"
-      "--annotation" "$filename:org.mise.download.size=$(stat -c%s "$filename" 2>/dev/null || stat -f%z "$filename" 2>/dev/null || echo '0')"
-    )
+
+    # Build layer annotations for annotation file
+    local file_size
+    file_size=$(stat -c%s "$filename" 2>/dev/null || stat -f%z "$filename" 2>/dev/null || echo '0')
+
+    layer_annotations_json=$(echo "$layer_annotations_json" | jq \
+      --arg file "$filename" \
+      --arg origfile "$original_filename" \
+      --arg title "${original_filename}_${mise_platform_key}" \
+      --arg platform "$mise_platform_key" \
+      --arg bin "$bin_path" \
+      --arg checksum "blake3:$expected_checksum" \
+      --arg url "$url" \
+      --arg size "$file_size" \
+      '.[$file] = {
+        "org.opencontainers.image.title": $title,
+        "org.mise.tool.filename": $file,
+        "org.mise.tool.platform": $platform,
+        "org.mise.tool.executable": $bin,
+        "org.mise.tool.checksum.blake3": $checksum,
+        "org.mise.download.url": $url,
+        "org.mise.download.size": $size
+      }')
 
   done < <(tomlq -r '.platforms | keys[]' "$mise_stub_file")
 
   # Create single OCI artifact with all platform files as layers
   local final_ref="${image_name}:${tag}"
   echo "📦 Creating MTA artifact: $final_ref"
-  
+
   # Create MTA-compliant config object
   create_mta_config "$mise_stub_file" > config.json
   config_media_type="application/vnd.mise.tool.v1+json"
 
+  # Create annotation file with manifest and layer annotations
+  echo "$layer_annotations_json" | jq \
+    --arg name "$image_name_base" \
+    --arg version "$version" \
+    --arg description "$description" \
+    --arg homepage "$url" \
+    --arg documentation "$documentation" \
+    --arg source "$source" \
+    --arg license "$license" \
+    --arg vendor "$vendor" \
+    --arg created "$created" \
+    --arg authors "$authors" \
+    '. + {"$manifest": {
+      "org.mise.tool.name": $name,
+      "org.mise.tool.version": $version,
+      "org.mise.tool.description": $description,
+      "org.mise.tool.homepage": $homepage,
+      "org.mise.tool.documentation": $documentation,
+      "org.mise.tool.source": $source,
+      "org.mise.tool.license": $license,
+      "org.mise.tool.vendor": $vendor,
+      "org.opencontainers.image.created": $created,
+      "org.opencontainers.image.authors": $authors
+    }}' > annotations.json
+
   oras push "$final_ref" \
     --config "config.json:$config_media_type" \
-    "${platform_files[@]}" \
-    "${platform_annotations[@]}" \
-    --annotation "org.mise.tool.name=$image_name_base" \
-    --annotation "org.mise.tool.version=$version" \
-    --annotation "org.mise.tool.description=$description" \
-    --annotation "org.mise.tool.homepage=$url" \
-    --annotation "org.mise.tool.documentation=$documentation" \
-    --annotation "org.mise.tool.source=$source" \
-    --annotation "org.mise.tool.license=$license" \
-    --annotation "org.mise.tool.vendor=$vendor" \
-    --annotation "org.opencontainers.image.created=$created" \
-    --annotation "org.opencontainers.image.authors=$authors"
+    --annotation-file annotations.json \
+    "${platform_files[@]}"
 }
 
 create_mta_config() {
   local mise_stub_file="$1"
-  
+
   # Extract platform data for config
   local platforms_json="{}"
   while IFS= read -r platform_key; do
     platform_key=$(echo "$platform_key" | sed 's/"//g')
-    
+
+    # Filter platforms if --platforms was specified
+    if [[ -n "$platform_filter" ]]; then
+      if ! echo ",$platform_filter," | grep -q ",$platform_key,"; then
+        continue
+      fi
+    fi
+
     local url expected_checksum bin_path size_value
     url=$(tomlq -r ".platforms.\"$platform_key\".url" "$mise_stub_file")
     expected_checksum=$(tomlq -r ".platforms.\"$platform_key\".checksum // empty" "$mise_stub_file")
     bin_path=$(tomlq -r ".platforms.\"$platform_key\".bin // \"bin/java\"" "$mise_stub_file")
     size_value=$(tomlq -r ".platforms.\"$platform_key\".size // 0" "$mise_stub_file")
-    
+
     if [[ "$url" != "null" && -n "$url" ]]; then
       # Handle blake3: prefix
       if [[ "$expected_checksum" =~ ^blake3: ]]; then
@@ -222,31 +292,53 @@ create_mta_config() {
     fi
   done < <(tomlq -r '.platforms | keys[]' "$mise_stub_file")
 
+  # Generate env vars based on tool type
+  local env_json='{}'
+  case "$image_name_base" in
+    *java*|*jdk*|*zulu*|*temurin*|*corretto*|*graalvm*)
+      env_json='{"JAVA_HOME": "{{ install_path }}"}'
+      ;;
+    *node*)
+      env_json='{"NODE_HOME": "{{ install_path }}"}'
+      ;;
+    *go|golang)
+      env_json='{"GOROOT": "{{ install_path }}"}'
+      ;;
+    *maven*)
+      env_json='{"M2_HOME": "{{ install_path }}", "MAVEN_HOME": "{{ install_path }}"}'
+      ;;
+    *gradle*)
+      env_json='{"GRADLE_HOME": "{{ install_path }}"}'
+      ;;
+    *python*)
+      env_json='{"PYTHONHOME": "{{ install_path }}"}'
+      ;;
+    *)
+      env_json='{}'
+      ;;
+  esac
+
   # Generate MTA config JSON
   jq -n \
     --arg tool "$image_name_base" \
     --arg version "$version" \
-    --arg bin "bin/java" \
     --arg description "$description" \
     --arg homepage "$url" \
     --arg license "$license" \
     --arg category "runtime" \
     --argjson platforms "$platforms_json" \
+    --argjson env "$env_json" \
     --arg created "$created" \
     '{
       mtaSpecVersion: "1.0",
       tool: $tool,
       version: $version,
-      bin: $bin,
       description: $description,
       homepage: $homepage,
       license: $license,
       category: $category,
       platforms: $platforms,
-      env: {
-        JAVA_HOME: "{{ install_path }}",
-        PATH: "{{ install_path }}/bin:{{ PATH }}"
-      },
+      env: $env,
       post_install: [
         "chmod +x {{ install_path }}/bin/*"
       ],

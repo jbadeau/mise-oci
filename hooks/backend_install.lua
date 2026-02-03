@@ -1,9 +1,24 @@
+-- Expand short tool name to full OCI reference using env vars
+local function expand_oci_ref(tool)
+  -- If already contains registry/namespace (has /), use as-is
+  if tool:find("/") then
+    return tool
+  end
+
+  -- Get defaults from env vars (with sensible defaults)
+  local registry = os.getenv("MISE_OCI_REGISTRY") or "docker.io"
+  local namespace = os.getenv("MISE_OCI_NAMESPACE") or "jbadeau"
+
+  return registry .. "/" .. namespace .. "/" .. tool
+end
+
 function PLUGIN:BackendInstall(ctx)
-  -- ctx.tool: OCI reference like "docker.io/jbadeau/azul-zulu"
+  -- ctx.tool: OCI reference like "docker.io/jbadeau/azul-zulu" or short name like "pnpm"
   -- ctx.version: version/tag like "17.60.17"
   -- ctx.install_path: where to install the tool
-  
-  local oci_ref = ctx.tool .. ":" .. ctx.version
+
+  local tool = expand_oci_ref(ctx.tool)
+  local oci_ref = tool .. ":" .. ctx.version
   local install_path = ctx.install_path
   
   -- Create install directory
@@ -13,26 +28,10 @@ function PLUGIN:BackendInstall(ctx)
   local temp_dir = os.tmpname() .. "_oci_extract"
   os.execute("mkdir -p " .. temp_dir)
   
-  -- Detect current platform using mise's RUNTIME API
-  local os_name = "linux"
-  local arch = "x64"
-  
-  -- Get OS using mise's RUNTIME API
-  if RUNTIME.osType == "darwin" then
-    os_name = "macosx"
-  elseif RUNTIME.osType == "windows" then
-    os_name = "win"
-  elseif RUNTIME.osType == "linux" then
-    os_name = "linux"
-  end
-  
-  -- Get architecture using mise's RUNTIME API
-  if RUNTIME.archType == "arm64" or RUNTIME.archType == "aarch64" then
-    arch = "aarch64"
-  elseif RUNTIME.archType == "amd64" or RUNTIME.archType == "x86_64" then
-    arch = "x64"
-  end
-  
+  -- Detect current platform using mise's RUNTIME API (use native mise names)
+  local os_name = RUNTIME.osType or "linux"
+  local arch = RUNTIME.archType or "amd64"
+
   local platform_key = os_name .. "_" .. arch
   
   -- First, get the manifest to find the correct layer for our platform
@@ -100,7 +99,9 @@ function PLUGIN:BackendInstall(ctx)
   
   local mta_config = nil
   if config_digest and config_digest ~= "null" then
-    local config_cmd = string.format("oras blob fetch %s %s 2>/dev/null", oci_ref, config_digest)
+    -- Extract repo without tag for blob fetch
+    local repo = oci_ref:match("^(.+):")
+    local config_cmd = string.format("oras blob fetch %s@%s --output - 2>/dev/null", repo, config_digest)
     local cfg_handle = io.popen(config_cmd)
     if cfg_handle then
       mta_config = cfg_handle:read("*all")
@@ -127,15 +128,29 @@ function PLUGIN:BackendInstall(ctx)
   local magic_bytes = file_handle:read(4)
   file_handle:close()
   
-  if magic_bytes and magic_bytes:sub(1,2) == "PK" then
+  -- Check magic bytes as hex for reliable comparison
+  local b1, b2, b3, b4 = magic_bytes:byte(1, 4)
+  local is_zip = (b1 == 0x50 and b2 == 0x4b)  -- PK
+  local is_gzip = (b1 == 0x1f and b2 == 0x8b)
+  local is_xz = (b1 == 0xfd and b2 == 0x37 and b3 == 0x7a and b4 == 0x58)  -- 0xfd 7zXZ
+  local is_elf = (b1 == 0x7f and b2 == 0x45 and b3 == 0x4c and b4 == 0x46)  -- 0x7f ELF
+  local is_macho = (b1 == 0xcf and b2 == 0xfa and b3 == 0xed and b4 == 0xfe) or  -- Mach-O 64-bit
+                   (b1 == 0xfe and b2 == 0xed and b3 == 0xfa and b4 == 0xcf) or  -- Mach-O 64-bit (swapped)
+                   (b1 == 0xca and b2 == 0xfe and b3 == 0xba and b4 == 0xbe)     -- Mach-O universal
+
+  if is_zip then
     -- ZIP file
     extract_cmd = string.format("cd %s && unzip -q %s && find . -maxdepth 1 -type d ! -name '.' -exec mv {} temp_extracted \\; && mv temp_extracted/* . && rmdir temp_extracted", install_path, platform_file)
-  elseif magic_bytes and magic_bytes:sub(1,2) == "\x1f\x8b" then
+  elseif is_gzip then
     -- GZIP file (tar.gz)
     extract_cmd = string.format("cd %s && tar -xzf %s --strip-components=1", install_path, platform_file)
-  elseif magic_bytes and magic_bytes:sub(1,6) == "\xfd7zXZ\x00" then
+  elseif is_xz then
     -- XZ file (tar.xz)
     extract_cmd = string.format("cd %s && tar -xJf %s --strip-components=1", install_path, platform_file)
+  elseif is_elf or is_macho then
+    -- Standalone binary (ELF or Mach-O)
+    local tool_name = oci_ref:match("/([^/:]+):")
+    extract_cmd = string.format("mkdir -p %s/bin && cp %s %s/bin/%s && chmod +x %s/bin/%s", install_path, platform_file, install_path, tool_name, install_path, tool_name)
   else
     -- Default to tar.gz
     extract_cmd = string.format("cd %s && tar -xzf %s --strip-components=1", install_path, platform_file)
@@ -150,12 +165,19 @@ function PLUGIN:BackendInstall(ctx)
     error("Failed to extract archive: " .. platform_file)
   end
   
-  -- Execute post-install commands from MTA config
-  if mta_config then
-    -- Simple post-install: make binaries executable
-    local chmod_cmd = string.format("chmod +x %s/bin/* 2>/dev/null || true", install_path)
-    os.execute(chmod_cmd)
+  -- Make binaries executable
+  local chmod_cmd = string.format("chmod +x %s/bin/* 2>/dev/null || true", install_path)
+  os.execute(chmod_cmd)
+
+  -- Save MTA config for use by backend_exec_env.lua
+  if mta_config and mta_config ~= "" then
+    local config_path = install_path .. "/.mta-config.json"
+    local config_file = io.open(config_path, "w")
+    if config_file then
+      config_file:write(mta_config)
+      config_file:close()
+    end
   end
-  
+
   return {}
 end

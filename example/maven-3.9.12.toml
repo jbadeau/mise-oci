@@ -4,9 +4,19 @@ tool = "maven"
 version = "3.9.12"
 
 # Maven is platform-independent (Java-based)
-# Only including unique archives to avoid duplicate annotation errors
+# Same tar.gz works on all Unix platforms
 
 [platforms.linux-x64]
+url = "https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.tar.gz"
+checksum = "blake3:07cf3b70c8b3c50ac71d7a4fae12a7fc78e8fd2f768eb2e3dfe13a7704fefa7e"
+size = 9233336 # 8.81 MiB
+
+[platforms.darwin-arm64]
+url = "https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.tar.gz"
+checksum = "blake3:07cf3b70c8b3c50ac71d7a4fae12a7fc78e8fd2f768eb2e3dfe13a7704fefa7e"
+size = 9233336 # 8.81 MiB
+
+[platforms.darwin-x64]
 url = "https://dlcdn.apache.org/maven/maven-3/3.9.12/binaries/apache-maven-3.9.12-bin.tar.gz"
 checksum = "blake3:07cf3b70c8b3c50ac71d7a4fae12a7fc78e8fd2f768eb2e3dfe13a7704fefa7e"
 size = 9233336 # 8.81 MiB

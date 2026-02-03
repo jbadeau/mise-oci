@@ -4,9 +4,19 @@ tool = "jib-cli"
 version = "0.13.0"
 
 # jib-cli is platform-independent (Java-based)
-# Single entry since the same zip works on all platforms
+# Same zip works on all platforms
 
 [platforms.linux-x64]
+url = "https://github.com/GoogleContainerTools/jib/releases/download/v0.13.0-cli/jib-jre-0.13.0.zip"
+checksum = "blake3:d2653d3db522f5d72b2624f1404c20f2b042479016c1209d972e61b42933f74a"
+size = 11124602 # 10.61 MiB
+
+[platforms.darwin-arm64]
+url = "https://github.com/GoogleContainerTools/jib/releases/download/v0.13.0-cli/jib-jre-0.13.0.zip"
+checksum = "blake3:d2653d3db522f5d72b2624f1404c20f2b042479016c1209d972e61b42933f74a"
+size = 11124602 # 10.61 MiB
+
+[platforms.darwin-x64]
 url = "https://github.com/GoogleContainerTools/jib/releases/download/v0.13.0-cli/jib-jre-0.13.0.zip"
 checksum = "blake3:d2653d3db522f5d72b2624f1404c20f2b042479016c1209d972e61b42933f74a"
 size = 11124602 # 10.61 MiB
