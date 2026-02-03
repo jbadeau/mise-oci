@@ -94,9 +94,12 @@ function PLUGIN:BackendInstall(ctx)
   -- Get the config for metadata
   local config_digest_cmd = string.format("jq -r '.config.digest' %s", manifest_file)
   local config_handle = io.popen(config_digest_cmd)
-  local config_digest = config_handle:read("*l")
-  config_handle:close()
-  
+  local config_digest = nil
+  if config_handle then
+    config_digest = config_handle:read("*l")
+    config_handle:close()
+  end
+
   local mta_config = nil
   if config_digest and config_digest ~= "null" then
     -- Extract repo without tag for blob fetch

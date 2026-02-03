@@ -1,0 +1,10 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "helm"
+version = "1.0.0"
+
+[platforms.darwin-arm64]
+url = "file:///Users/jbadeau/git/mise-oci/example/helm/helm"
+checksum = "blake3:17e2c4dd9c3b1f0c7560f6ef690905ee336ffdbd21394ce59e9de632345240e1"
+size = 60787522 # 57.97 MiB
+bin = "helm"

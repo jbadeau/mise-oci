@@ -7,7 +7,11 @@ main() {
 
   absolute_mise_stub_file=$(get_absolute_path "$mise_stub_file_arg")
   parse_image_name_and_tag "$absolute_mise_stub_file"
-  image_name="$registry/$namespace/$image_name_base"
+  if [[ "$namespace" == */* ]]; then
+    image_name="$registry/$namespace"
+  else
+    image_name="$registry/$namespace/$image_name_base"
+  fi
 
   parse_global_annotations "$absolute_mise_stub_file"
 
@@ -160,8 +164,19 @@ process_platforms() {
     # Use platform-specific filename to avoid duplicates when same URL is used for multiple platforms
     filename="${mise_platform_key}_${original_filename}"
 
-    echo "📦 Downloading $original_filename for $os/$arch"
-    curl -fsSL -o "$filename" "$url"
+    # Handle file:// URLs (local files) vs http(s):// URLs
+    if [[ "$url" == file://* ]]; then
+      local local_path="${url#file://}"
+      echo "📦 Copying local file $local_path for $os/$arch"
+      if [[ ! -f "$local_path" ]]; then
+        echo "❌ Local file not found: $local_path" >&2
+        exit 1
+      fi
+      cp "$local_path" "$filename"
+    else
+      echo "📦 Downloading $original_filename for $os/$arch"
+      curl -fsSL -o "$filename" "$url"
+    fi
 
     # Only verify checksum if provided
     if [[ -n "$expected_checksum" && "$expected_checksum" != "empty" ]]; then
@@ -177,15 +192,8 @@ process_platforms() {
       echo "⚠️  No checksum provided, skipping verification"
     fi
 
-    # Detect format from filename and use MTA media types
-    case "$filename" in
-      *.tar.gz)   media_type="application/vnd.mise.tool.layer.v1.tar+gzip" ;;
-      *.tar.xz)   media_type="application/vnd.mise.tool.layer.v1.tar+xz" ;;
-      *.tar.zst)  media_type="application/vnd.mise.tool.layer.v1.tar+zstd" ;;
-      *.zip)      media_type="application/vnd.mise.tool.layer.v1.zip" ;;
-      *.vsix)     media_type="application/vnd.mise.tool.layer.v1.vsix" ;;
-      *)          media_type="application/vnd.mise.tool.layer.v1.bin" ;;
-    esac
+    # Use raw binary media type for registry compatibility
+    media_type="application/octet-stream"
 
     # Add MTA-compliant annotations to the file
     # Include mise_platform_key in title for backend_install.lua platform matching
