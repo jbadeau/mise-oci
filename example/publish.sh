@@ -206,15 +206,14 @@ process_platforms() {
     layer_annotations_json=$(echo "$layer_annotations_json" | jq \
       --arg file "$filename" \
       --arg origfile "$original_filename" \
-      --arg title "${original_filename}_${mise_platform_key}" \
       --arg platform "$mise_platform_key" \
       --arg bin "$bin_path" \
       --arg checksum "blake3:$expected_checksum" \
       --arg url "$url" \
       --arg size "$file_size" \
       '.[$file] = {
-        "org.opencontainers.image.title": $title,
-        "org.mise.tool.filename": $file,
+        "org.opencontainers.image.title": $file,
+        "org.mise.tool.filename": $origfile,
         "org.mise.tool.platform": $platform,
         "org.mise.tool.executable": $bin,
         "org.mise.tool.checksum.blake3": $checksum,

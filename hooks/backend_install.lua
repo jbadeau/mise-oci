@@ -12,6 +12,53 @@ local function expand_oci_ref(tool)
   return registry .. "/" .. namespace .. "/" .. tool
 end
 
+-- Get registry config path, creating empty config for anonymous access if needed
+-- This avoids Docker Desktop credential store contention with parallel jobs
+local function get_registry_config()
+  local config_path = os.getenv("MISE_OCI_REGISTRY_CONFIG")
+  if config_path then
+    return config_path
+  end
+
+  -- Create empty config for anonymous access to public registries
+  local mise_data = os.getenv("MISE_DATA_DIR") or (os.getenv("HOME") .. "/.local/share/mise")
+  local oci_config_dir = mise_data .. "/oci"
+  local empty_config = oci_config_dir .. "/registry-config.json"
+
+  -- Create config dir and empty config if not exists
+  os.execute("mkdir -p " .. oci_config_dir)
+  local f = io.open(empty_config, "r")
+  if not f then
+    f = io.open(empty_config, "w")
+    if f then
+      f:write("{}")
+      f:close()
+    end
+  else
+    f:close()
+  end
+
+  return empty_config
+end
+
+-- Read file contents (replacement for io.popen to avoid parallel execution issues)
+local function read_file(path)
+  local f = io.open(path, "r")
+  if not f then return nil end
+  local content = f:read("*all")
+  f:close()
+  return content
+end
+
+-- Read first line of file
+local function read_file_line(path)
+  local f = io.open(path, "r")
+  if not f then return nil end
+  local line = f:read("*l")
+  f:close()
+  return line
+end
+
 function PLUGIN:BackendInstall(ctx)
   -- ctx.tool: OCI reference like "docker.io/jbadeau/azul-zulu" or short name like "pnpm"
   -- ctx.version: version/tag like "17.60.17"
@@ -20,101 +67,94 @@ function PLUGIN:BackendInstall(ctx)
   local tool = expand_oci_ref(ctx.tool)
   local oci_ref = tool .. ":" .. ctx.version
   local install_path = ctx.install_path
-  
+
   -- Create install directory
   os.execute("mkdir -p " .. install_path)
-  
-  -- Create temp directory for extraction
-  local temp_dir = os.tmpname() .. "_oci_extract"
+
+  -- Create unique temp directory for extraction (use PID and random for uniqueness)
+  local temp_dir = string.format("/tmp/oci_extract_%d_%d", os.time(), math.random(100000, 999999))
   os.execute("mkdir -p " .. temp_dir)
-  
+
   -- Detect current platform using mise's RUNTIME API (use native mise names)
   local os_name = RUNTIME.osType or "linux"
   local arch = RUNTIME.archType or "amd64"
 
   local platform_key = os_name .. "_" .. arch
-  
+
+  -- Get registry config (avoids credential store contention with parallel jobs)
+  local registry_config = get_registry_config()
+
   -- First, get the manifest to find the correct layer for our platform
-  local manifest_cmd = string.format("oras manifest fetch %s", oci_ref)
-  local manifest_handle = io.popen(manifest_cmd)
-  if not manifest_handle then
+  local manifest_file = temp_dir .. "/manifest.json"
+  local manifest_cmd = string.format("oras manifest fetch --registry-config %s %s > %s 2>&1",
+    registry_config, oci_ref, manifest_file)
+  local manifest_result = os.execute(manifest_cmd)
+
+  if manifest_result ~= 0 then
     os.execute("rm -rf " .. temp_dir)
     error("Failed to fetch manifest for: " .. oci_ref)
   end
-  
-  local manifest_json = manifest_handle:read("*all")
-  manifest_handle:close()
-  
+
+  local manifest_json = read_file(manifest_file)
   if not manifest_json or manifest_json == "" then
     os.execute("rm -rf " .. temp_dir)
     error("Empty manifest for: " .. oci_ref)
   end
-  
-  -- Parse manifest to find platform-specific layer
-  local manifest_file = temp_dir .. "/manifest.json"
-  local mf = io.open(manifest_file, "w")
-  mf:write(manifest_json)
-  mf:close()
-  
-  -- Use jq to find the layer digest for our platform
-  local platform_key = os_name .. "_" .. arch
-  local jq_cmd = string.format("jq -r '.layers[] | select(.annotations.\"org.opencontainers.image.title\" | test(\"%s\")) | .digest' %s", platform_key, manifest_file)
-  local jq_handle = io.popen(jq_cmd)
-  local layer_digest = nil
-  if jq_handle then
-    layer_digest = jq_handle:read("*l")
-    jq_handle:close()
-  end
-  
+
+  -- Use jq to find the layer digest for our platform (write to temp file)
+  local digest_file = temp_dir .. "/digest.txt"
+  local jq_cmd = string.format(
+    "jq -r '.layers[] | select(.annotations.\"org.opencontainers.image.title\" | test(\"%s\")) | .digest' %s > %s 2>/dev/null",
+    platform_key, manifest_file, digest_file)
+  os.execute(jq_cmd)
+
+  local layer_digest = read_file_line(digest_file)
+
   if not layer_digest or layer_digest == "null" or layer_digest == "" then
     -- Fallback: try pattern matching on filename
-    local fallback_jq = string.format("jq -r '.layers[] | select(.annotations.\"org.opencontainers.image.title\" | contains(\"%s\")) | .digest' %s", platform_key, manifest_file)
-    local fallback_handle = io.popen(fallback_jq)
-    if fallback_handle then
-      layer_digest = fallback_handle:read("*l")
-      fallback_handle:close()
-    end
+    local fallback_jq = string.format(
+      "jq -r '.layers[] | select(.annotations.\"org.opencontainers.image.title\" | contains(\"%s\")) | .digest' %s > %s 2>/dev/null",
+      platform_key, manifest_file, digest_file)
+    os.execute(fallback_jq)
+    layer_digest = read_file_line(digest_file)
   end
-  
+
   if not layer_digest or layer_digest == "null" or layer_digest == "" then
     os.execute("rm -rf " .. temp_dir)
     error("No layer found for platform: " .. platform_key .. " in MTA artifact")
   end
-  
+
   -- Pull only the specific layer and config we need
   local repo_digest = oci_ref:match("^(.+):")
-  local pull_cmd = string.format("cd %s && oras blob fetch %s@%s --output blob.tar.gz 2>/dev/null", temp_dir, repo_digest, layer_digest)
+  local pull_cmd = string.format("oras blob fetch --registry-config %s %s@%s --output %s/blob.tar.gz",
+    registry_config, repo_digest, layer_digest, temp_dir)
   local pull_result = os.execute(pull_cmd)
-  
+
   if pull_result ~= 0 then
     os.execute("rm -rf " .. temp_dir)
     error("Failed to pull platform-specific layer: " .. layer_digest)
   end
-  
+
   -- Get the config for metadata
-  local config_digest_cmd = string.format("jq -r '.config.digest' %s", manifest_file)
-  local config_handle = io.popen(config_digest_cmd)
-  local config_digest = nil
-  if config_handle then
-    config_digest = config_handle:read("*l")
-    config_handle:close()
-  end
+  local config_digest_file = temp_dir .. "/config_digest.txt"
+  local config_digest_cmd = string.format("jq -r '.config.digest' %s > %s 2>/dev/null", manifest_file, config_digest_file)
+  os.execute(config_digest_cmd)
+  local config_digest = read_file_line(config_digest_file)
 
   local mta_config = nil
-  if config_digest and config_digest ~= "null" then
+  if config_digest and config_digest ~= "null" and config_digest ~= "" then
     -- Extract repo without tag for blob fetch
     local repo = oci_ref:match("^(.+):")
-    local config_cmd = string.format("oras blob fetch %s@%s --output - 2>/dev/null", repo, config_digest)
-    local cfg_handle = io.popen(config_cmd)
-    if cfg_handle then
-      mta_config = cfg_handle:read("*all")
-      cfg_handle:close()
-    end
+    local config_file = temp_dir .. "/mta_config.json"
+    local config_cmd = string.format("oras blob fetch --registry-config %s %s@%s --output %s 2>/dev/null",
+      registry_config, repo, config_digest, config_file)
+    os.execute(config_cmd)
+    mta_config = read_file(config_file)
   end
-  
+
   -- The blob we pulled is our platform file
   local platform_file = temp_dir .. "/blob.tar.gz"
-  
+
   -- Check if file exists
   local file_check = io.open(platform_file, "r")
   if not file_check then
@@ -122,15 +162,15 @@ function PLUGIN:BackendInstall(ctx)
     error("Platform-specific layer not found after download")
   end
   file_check:close()
-  
+
   -- Determine extraction method from layer annotations or file signature
   local extract_cmd
-  
+
   -- Check if it's a zip file by trying to read the magic bytes
   local file_handle = io.open(platform_file, "rb")
   local magic_bytes = file_handle:read(4)
   file_handle:close()
-  
+
   -- Check magic bytes as hex for reliable comparison
   local b1, b2, b3, b4 = magic_bytes:byte(1, 4)
   local is_zip = (b1 == 0x50 and b2 == 0x4b)  -- PK
@@ -158,16 +198,16 @@ function PLUGIN:BackendInstall(ctx)
     -- Default to tar.gz
     extract_cmd = string.format("cd %s && tar -xzf %s --strip-components=1", install_path, platform_file)
   end
-  
+
   local extract_result = os.execute(extract_cmd)
-  
+
   -- Clean up temp directory
   os.execute("rm -rf " .. temp_dir)
-  
+
   if extract_result ~= 0 then
     error("Failed to extract archive: " .. platform_file)
   end
-  
+
   -- Make binaries executable
   local chmod_cmd = string.format("chmod +x %s/bin/* 2>/dev/null || true", install_path)
   os.execute(chmod_cmd)

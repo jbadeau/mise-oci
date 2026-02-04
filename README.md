@@ -174,6 +174,79 @@ export MISE_OCI_PASSWORD="pass"
 
 Archives should contain binaries in a `bin/` directory structure.
 
+## Publishing Tools
+
+The `example/` directory contains tool stubs that can be published to OCI registries. See the [example README](example/README.md) for detailed instructions.
+
+### Available Example Tools
+
+| Tool | Version | Description |
+|------|---------|-------------|
+| `helm` | 4.1.0 | Kubernetes package manager |
+| `helmfile` | 1.2.3 | Declarative spec for deploying helm charts |
+| `node` | 24.13.0 | Node.js JavaScript runtime |
+| `pnpm` | 10.28.2 | Fast, disk space efficient package manager |
+| `azul-zulu` | 21.48.15 | Azul Zulu JDK 21 |
+| `maven` | 3.9.12 | Apache Maven build tool |
+| `jib-cli` | 0.13.0 | Build container images for Java applications |
+
+### Quick Publish
+
+To publish all example tools to your registry:
+
+```sh
+cd example
+
+# Publish individual tools
+./publish.sh helm-4.1.0.toml docker.io/yournamespace
+./publish.sh helmfile-1.2.3.toml docker.io/yournamespace
+./publish.sh node-24.13.0.toml docker.io/yournamespace
+./publish.sh pnpm-10.28.2.toml docker.io/yournamespace
+./publish.sh azul-zulu-21.48.15.toml docker.io/yournamespace
+./publish.sh maven-3.9.12.toml docker.io/yournamespace
+./publish.sh jib-cli-0.13.0.toml docker.io/yournamespace
+```
+
+Or publish all at once:
+
+```sh
+cd example
+for stub in helm-4.1.0.toml helmfile-1.2.3.toml node-24.13.0.toml pnpm-10.28.2.toml azul-zulu-21.48.15.toml maven-3.9.12.toml jib-cli-0.13.0.toml; do
+  ./publish.sh "$stub" docker.io/yournamespace
+done
+```
+
+### Prerequisites for Publishing
+
+- **[oras](https://oras.land/)** - OCI registry client
+- **[tomlq](https://github.com/kislyuk/yq)** - TOML query tool (`pip install yq`)
+- **[b3sum](https://github.com/BLAKE3-team/BLAKE3)** - BLAKE3 checksum tool
+- **[jq](https://jqlang.github.io/jq/)** - JSON processor
+- **[curl](https://curl.se/)** - URL transfer tool
+
+### Creating New Tool Stubs
+
+See [example/SPECIFICATION.md](example/SPECIFICATION.md) for the full tool stub format.
+
+Basic structure:
+
+```toml
+tool = "mytool"
+version = "1.0.0"
+
+[platforms.linux-x64]
+url = "https://example.com/mytool-linux-amd64.tar.gz"
+checksum = "blake3:abc123..."
+size = 12345678
+bin = "mytool"
+
+[platforms.darwin-arm64]
+url = "https://example.com/mytool-darwin-arm64.tar.gz"
+checksum = "blake3:def456..."
+size = 12345678
+bin = "mytool"
+```
+
 ## Development
 
 ```sh

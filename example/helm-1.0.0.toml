@@ -5,6 +5,6 @@ version = "1.0.0"
 
 [platforms.darwin-arm64]
 url = "file:///Users/jbadeau/git/mise-oci/example/helm/helm"
-checksum = "blake3:17e2c4dd9c3b1f0c7560f6ef690905ee336ffdbd21394ce59e9de632345240e1"
+checksum = "blake3:af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
 size = 60787522 # 57.97 MiB
 bin = "helm"
