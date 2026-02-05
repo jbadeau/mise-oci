@@ -30,30 +30,15 @@ local function expand_oci_ref(tool)
   return registry .. "/" .. repository .. "/" .. tool
 end
 
--- Login to registry if credentials are provided
-local function ensure_registry_login()
-  local registry = os.getenv("MISE_OCI_REGISTRY")
-  local username = os.getenv("MISE_OCI_USERNAME")
-  local password = os.getenv("MISE_OCI_PASSWORD")
-
-  if username and password and username ~= "" and password ~= "" and registry then
-    local login_cmd = string.format("echo '%s' | oras login %s -u '%s' --password-stdin >/dev/null 2>&1",
-      password, registry, username)
-    os.execute(login_cmd)
-  end
-end
-
 function PLUGIN:BackendListVersions(ctx)
   -- ctx.tool contains the OCI reference like "docker.io/jbadeau/azul-zulu" or short name like "pnpm"
-  ensure_registry_login()
-
   local registry_url = expand_oci_ref(ctx.tool)
 
   -- Create unique temp file for output
   local temp_file = string.format("/tmp/oci_tags_%d_%d.txt", os.time(), math.random(100000, 999999))
 
   -- Use oras to list tags from the OCI registry for MTA artifacts
-  local cmd = string.format("oras repo tags %s > %s 2>&1",
+  local cmd = string.format("oras repo tags --no-tty %s > %s 2>&1",
     registry_url, temp_file)
   local result = os.execute(cmd)
 

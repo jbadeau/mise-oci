@@ -30,19 +30,6 @@ local function expand_oci_ref(tool)
   return registry .. "/" .. repository .. "/" .. tool
 end
 
--- Login to registry if credentials are provided
-local function ensure_registry_login()
-  local registry = os.getenv("MISE_OCI_REGISTRY")
-  local username = os.getenv("MISE_OCI_USERNAME")
-  local password = os.getenv("MISE_OCI_PASSWORD")
-
-  if username and password and username ~= "" and password ~= "" and registry then
-    local login_cmd = string.format("echo '%s' | oras login %s -u '%s' --password-stdin >/dev/null 2>&1",
-      password, registry, username)
-    os.execute(login_cmd)
-  end
-end
-
 -- Read file contents (replacement for io.popen to avoid parallel execution issues)
 local function read_file(path)
   local f = io.open(path, "r")
@@ -66,8 +53,6 @@ function PLUGIN:BackendInstall(ctx)
   -- ctx.version: version/tag like "17.60.17"
   -- ctx.install_path: where to install the tool
 
-  ensure_registry_login()
-
   local tool = expand_oci_ref(ctx.tool)
   local oci_ref = tool .. ":" .. ctx.version
   local install_path = ctx.install_path
@@ -87,7 +72,7 @@ function PLUGIN:BackendInstall(ctx)
 
   -- First, get the manifest to find the correct layer for our platform
   local manifest_file = temp_dir .. "/manifest.json"
-  local manifest_cmd = string.format("oras manifest fetch %s > %s 2>&1",
+  local manifest_cmd = string.format("oras manifest fetch --no-tty %s > %s 2>&1",
     oci_ref, manifest_file)
   local manifest_result = os.execute(manifest_cmd)
 
@@ -129,7 +114,7 @@ function PLUGIN:BackendInstall(ctx)
 
   -- Pull only the specific layer and config we need
   local repo_digest = oci_ref:match("^(.+):")
-  local pull_cmd = string.format("oras blob fetch %s@%s --output %s/blob.tar.gz",
+  local pull_cmd = string.format("oras blob fetch --no-tty %s@%s --output %s/blob.tar.gz",
     repo_digest, layer_digest, temp_dir)
   local pull_result = os.execute(pull_cmd)
 
@@ -149,7 +134,7 @@ function PLUGIN:BackendInstall(ctx)
     -- Extract repo without tag for blob fetch
     local repo = oci_ref:match("^(.+):")
     local config_file = temp_dir .. "/mta_config.json"
-    local config_cmd = string.format("oras blob fetch %s@%s --output %s 2>/dev/null",
+    local config_cmd = string.format("oras blob fetch --no-tty %s@%s --output %s 2>/dev/null",
       repo, config_digest, config_file)
     os.execute(config_cmd)
     mta_config = read_file(config_file)

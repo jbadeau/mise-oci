@@ -4,7 +4,13 @@ tool = "helm"
 version = "1.0.0"
 
 [platforms.darwin-arm64]
-url = "file:///Users/jbadeau/git/mise-oci/example/helm/helm"
-checksum = "blake3:af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262"
-size = 60787522 # 57.97 MiB
+url = "file:///Users/jbadeau/git/mise-oci/example/helm/darwin-arm64/helm"
+checksum = "blake3:c4682d4c802edcbbd0a27ebd5adbe1fb1b58d96683a346023b729f5be20ba895"
+size = 57376178
+bin = "helm"
+
+[platforms.linux-x64]
+url = "file:///Users/jbadeau/git/mise-oci/example/helm/linux-amd64/helm"
+checksum = "blake3:41969dd27fecd390fcbd736eaf4b216d882c71fae08948b0c8a3317ae1a0013e"
+size = 57176216
 bin = "helm"
