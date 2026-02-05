@@ -30,33 +30,17 @@ local function expand_oci_ref(tool)
   return registry .. "/" .. repository .. "/" .. tool
 end
 
--- Get registry config path, creating empty config for anonymous access if needed
--- This avoids Docker Desktop credential store contention with parallel jobs
-local function get_registry_config()
-  local config_path = os.getenv("MISE_OCI_REGISTRY_CONFIG")
-  if config_path then
-    return config_path
+-- Login to registry if credentials are provided
+local function ensure_registry_login()
+  local registry = os.getenv("MISE_OCI_REGISTRY")
+  local username = os.getenv("MISE_OCI_USERNAME")
+  local password = os.getenv("MISE_OCI_PASSWORD")
+
+  if username and password and username ~= "" and password ~= "" and registry then
+    local login_cmd = string.format("echo '%s' | oras login %s -u '%s' --password-stdin >/dev/null 2>&1",
+      password, registry, username)
+    os.execute(login_cmd)
   end
-
-  -- Create empty config for anonymous access to public registries
-  local mise_data = os.getenv("MISE_DATA_DIR") or (os.getenv("HOME") .. "/.local/share/mise")
-  local oci_config_dir = mise_data .. "/oci"
-  local empty_config = oci_config_dir .. "/registry-config.json"
-
-  -- Create config dir and empty config if not exists
-  os.execute("mkdir -p " .. oci_config_dir)
-  local f = io.open(empty_config, "r")
-  if not f then
-    f = io.open(empty_config, "w")
-    if f then
-      f:write("{}")
-      f:close()
-    end
-  else
-    f:close()
-  end
-
-  return empty_config
 end
 
 -- Read file contents (replacement for io.popen to avoid parallel execution issues)
@@ -82,6 +66,8 @@ function PLUGIN:BackendInstall(ctx)
   -- ctx.version: version/tag like "17.60.17"
   -- ctx.install_path: where to install the tool
 
+  ensure_registry_login()
+
   local tool = expand_oci_ref(ctx.tool)
   local oci_ref = tool .. ":" .. ctx.version
   local install_path = ctx.install_path
@@ -99,13 +85,10 @@ function PLUGIN:BackendInstall(ctx)
 
   local platform_key = os_name .. "_" .. arch
 
-  -- Get registry config (avoids credential store contention with parallel jobs)
-  local registry_config = get_registry_config()
-
   -- First, get the manifest to find the correct layer for our platform
   local manifest_file = temp_dir .. "/manifest.json"
-  local manifest_cmd = string.format("oras manifest fetch --registry-config %s %s > %s 2>&1",
-    registry_config, oci_ref, manifest_file)
+  local manifest_cmd = string.format("oras manifest fetch %s > %s 2>&1",
+    oci_ref, manifest_file)
   local manifest_result = os.execute(manifest_cmd)
 
   if manifest_result ~= 0 then
@@ -146,8 +129,8 @@ function PLUGIN:BackendInstall(ctx)
 
   -- Pull only the specific layer and config we need
   local repo_digest = oci_ref:match("^(.+):")
-  local pull_cmd = string.format("oras blob fetch --registry-config %s %s@%s --output %s/blob.tar.gz",
-    registry_config, repo_digest, layer_digest, temp_dir)
+  local pull_cmd = string.format("oras blob fetch %s@%s --output %s/blob.tar.gz",
+    repo_digest, layer_digest, temp_dir)
   local pull_result = os.execute(pull_cmd)
 
   if pull_result ~= 0 then
@@ -166,8 +149,8 @@ function PLUGIN:BackendInstall(ctx)
     -- Extract repo without tag for blob fetch
     local repo = oci_ref:match("^(.+):")
     local config_file = temp_dir .. "/mta_config.json"
-    local config_cmd = string.format("oras blob fetch --registry-config %s %s@%s --output %s 2>/dev/null",
-      registry_config, repo, config_digest, config_file)
+    local config_cmd = string.format("oras blob fetch %s@%s --output %s 2>/dev/null",
+      repo, config_digest, config_file)
     os.execute(config_cmd)
     mta_config = read_file(config_file)
   end

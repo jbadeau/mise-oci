@@ -30,46 +30,31 @@ local function expand_oci_ref(tool)
   return registry .. "/" .. repository .. "/" .. tool
 end
 
--- Get registry config path, creating empty config for anonymous access if needed
--- This avoids Docker Desktop credential store contention with parallel jobs
-local function get_registry_config()
-  local config_path = os.getenv("MISE_OCI_REGISTRY_CONFIG")
-  if config_path then
-    return config_path
+-- Login to registry if credentials are provided
+local function ensure_registry_login()
+  local registry = os.getenv("MISE_OCI_REGISTRY")
+  local username = os.getenv("MISE_OCI_USERNAME")
+  local password = os.getenv("MISE_OCI_PASSWORD")
+
+  if username and password and username ~= "" and password ~= "" and registry then
+    local login_cmd = string.format("echo '%s' | oras login %s -u '%s' --password-stdin >/dev/null 2>&1",
+      password, registry, username)
+    os.execute(login_cmd)
   end
-
-  -- Create empty config for anonymous access to public registries
-  local mise_data = os.getenv("MISE_DATA_DIR") or (os.getenv("HOME") .. "/.local/share/mise")
-  local oci_config_dir = mise_data .. "/oci"
-  local empty_config = oci_config_dir .. "/registry-config.json"
-
-  -- Create config dir and empty config if not exists
-  os.execute("mkdir -p " .. oci_config_dir)
-  local f = io.open(empty_config, "r")
-  if not f then
-    f = io.open(empty_config, "w")
-    if f then
-      f:write("{}")
-      f:close()
-    end
-  else
-    f:close()
-  end
-
-  return empty_config
 end
 
 function PLUGIN:BackendListVersions(ctx)
   -- ctx.tool contains the OCI reference like "docker.io/jbadeau/azul-zulu" or short name like "pnpm"
+  ensure_registry_login()
+
   local registry_url = expand_oci_ref(ctx.tool)
-  local registry_config = get_registry_config()
 
   -- Create unique temp file for output
   local temp_file = string.format("/tmp/oci_tags_%d_%d.txt", os.time(), math.random(100000, 999999))
 
   -- Use oras to list tags from the OCI registry for MTA artifacts
-  local cmd = string.format("oras repo tags --registry-config %s %s > %s 2>&1",
-    registry_config, registry_url, temp_file)
+  local cmd = string.format("oras repo tags %s > %s 2>&1",
+    registry_url, temp_file)
   local result = os.execute(cmd)
 
   -- Check if oras command succeeded
