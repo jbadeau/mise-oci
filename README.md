@@ -145,14 +145,21 @@ For the complete specification, see [example/SPECIFICATION.md](example/SPECIFICA
 
 ## Environment Variables
 
+**Required:**
 ```sh
-# Custom registry configuration
-export MISE_OCI_DEFAULT_REGISTRY="registry.company.com"
+export MISE_OCI_REGISTRY="registry.company.com"
+export MISE_OCI_REPOSITORY="myorg/tools"
+```
 
-# Authentication credentials (if not using oras login)
+**Optional (for private registries):**
+```sh
 export MISE_OCI_USERNAME="user"
 export MISE_OCI_PASSWORD="pass"
 ```
+
+Tools are resolved as: `$MISE_OCI_REGISTRY/$MISE_OCI_REPOSITORY/<tool>`
+
+Example: `registry.company.com/myorg/tools/helm:4.1.0`
 
 ## Troubleshooting
 

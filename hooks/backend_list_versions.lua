@@ -1,15 +1,33 @@
+-- Check required environment variables
+local function check_required_env()
+  local required = {
+    "MISE_OCI_REGISTRY",
+    "MISE_OCI_REPOSITORY"
+  }
+  local missing = {}
+  for _, var in ipairs(required) do
+    if not os.getenv(var) or os.getenv(var) == "" then
+      table.insert(missing, var)
+    end
+  end
+  if #missing > 0 then
+    error("Missing required environment variables: " .. table.concat(missing, ", "))
+  end
+end
+
 -- Expand short tool name to full OCI reference using env vars
 local function expand_oci_ref(tool)
+  check_required_env()
+
   -- If already contains registry/namespace (has /), use as-is
   if tool:find("/") then
     return tool
   end
 
-  -- Get defaults from env vars (with sensible defaults)
-  local registry = os.getenv("MISE_OCI_REGISTRY") or "docker.io"
-  local namespace = os.getenv("MISE_OCI_NAMESPACE") or "jbadeau"
+  local registry = os.getenv("MISE_OCI_REGISTRY")
+  local repository = os.getenv("MISE_OCI_REPOSITORY")
 
-  return registry .. "/" .. namespace .. "/" .. tool
+  return registry .. "/" .. repository .. "/" .. tool
 end
 
 -- Get registry config path, creating empty config for anonymous access if needed
@@ -50,9 +68,21 @@ function PLUGIN:BackendListVersions(ctx)
   local temp_file = string.format("/tmp/oci_tags_%d_%d.txt", os.time(), math.random(100000, 999999))
 
   -- Use oras to list tags from the OCI registry for MTA artifacts
-  local cmd = string.format("oras repo tags --registry-config %s %s > %s 2>/dev/null",
+  local cmd = string.format("oras repo tags --registry-config %s %s > %s 2>&1",
     registry_config, registry_url, temp_file)
-  os.execute(cmd)
+  local result = os.execute(cmd)
+
+  -- Check if oras command succeeded
+  if result ~= 0 then
+    -- Read error output for debugging
+    local err_file = io.open(temp_file, "r")
+    local err_msg = err_file and err_file:read("*all") or "oras command failed"
+    if err_file then err_file:close() end
+    os.remove(temp_file)
+    -- Log error but return empty versions (mise will show "No versions found" warning)
+    io.stderr:write("mise-oci: Failed to list tags for " .. registry_url .. ": " .. (err_msg or "unknown error") .. "\n")
+    return { versions = {} }
+  end
 
   local versions = {}
   local f = io.open(temp_file, "r")

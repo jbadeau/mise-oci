@@ -1,15 +1,33 @@
+-- Check required environment variables
+local function check_required_env()
+  local required = {
+    "MISE_OCI_REGISTRY",
+    "MISE_OCI_REPOSITORY"
+  }
+  local missing = {}
+  for _, var in ipairs(required) do
+    if not os.getenv(var) or os.getenv(var) == "" then
+      table.insert(missing, var)
+    end
+  end
+  if #missing > 0 then
+    error("Missing required environment variables: " .. table.concat(missing, ", "))
+  end
+end
+
 -- Expand short tool name to full OCI reference using env vars
 local function expand_oci_ref(tool)
+  check_required_env()
+
   -- If already contains registry/namespace (has /), use as-is
   if tool:find("/") then
     return tool
   end
 
-  -- Get defaults from env vars (with sensible defaults)
-  local registry = os.getenv("MISE_OCI_REGISTRY") or "docker.io"
-  local namespace = os.getenv("MISE_OCI_NAMESPACE") or "jbadeau"
+  local registry = os.getenv("MISE_OCI_REGISTRY")
+  local repository = os.getenv("MISE_OCI_REPOSITORY")
 
-  return registry .. "/" .. namespace .. "/" .. tool
+  return registry .. "/" .. repository .. "/" .. tool
 end
 
 -- Get registry config path, creating empty config for anonymous access if needed
@@ -91,8 +109,10 @@ function PLUGIN:BackendInstall(ctx)
   local manifest_result = os.execute(manifest_cmd)
 
   if manifest_result ~= 0 then
+    -- Read the error output before cleanup
+    local error_msg = read_file(manifest_file) or "unknown error"
     os.execute("rm -rf " .. temp_dir)
-    error("Failed to fetch manifest for: " .. oci_ref)
+    error("Failed to fetch manifest for: " .. oci_ref .. " - " .. error_msg)
   end
 
   local manifest_json = read_file(manifest_file)

@@ -3,15 +3,13 @@ set -euo pipefail
 
 main() {
   check_dependencies
+  check_env_vars
   parse_args "$@"
+  login_registry
 
   absolute_mise_stub_file=$(get_absolute_path "$mise_stub_file_arg")
   parse_image_name_and_tag "$absolute_mise_stub_file"
-  if [[ "$namespace" == */* ]]; then
-    image_name="$registry/$namespace"
-  else
-    image_name="$registry/$namespace/$image_name_base"
-  fi
+  image_name="$MISE_OCI_REGISTRY/$MISE_OCI_REPOSITORY/$image_name_base"
 
   parse_global_annotations "$absolute_mise_stub_file"
 
@@ -33,6 +31,24 @@ check_dependencies() {
   done
 }
 
+check_env_vars() {
+  local missing=()
+  [[ -z "${MISE_OCI_REGISTRY:-}" ]] && missing+=("MISE_OCI_REGISTRY")
+  [[ -z "${MISE_OCI_REPOSITORY:-}" ]] && missing+=("MISE_OCI_REPOSITORY")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "❌ Missing required environment variables: ${missing[*]}" >&2
+    exit 1
+  fi
+}
+
+login_registry() {
+  if [[ -n "${MISE_OCI_USERNAME:-}" && -n "${MISE_OCI_PASSWORD:-}" ]]; then
+    echo "🔐 Logging in to $MISE_OCI_REGISTRY..."
+    echo "$MISE_OCI_PASSWORD" | oras login "$MISE_OCI_REGISTRY" -u "$MISE_OCI_USERNAME" --password-stdin
+  fi
+}
+
 parse_args() {
   platform_filter=""
 
@@ -49,25 +65,21 @@ parse_args() {
     esac
   done
 
-  if [ "$#" -ne 2 ]; then
-    echo "Usage: $0 [--platforms platform1,platform2] <mise_stub_file> <registry/namespace>" >&2
-    echo "Example: $0 tool.toml docker.io/username" >&2
-    echo "Example: $0 --platforms linux-x64,darwin-arm64 tool.toml docker.io/username" >&2
+  if [ "$#" -ne 1 ]; then
+    echo "Usage: $0 [--platforms platform1,platform2] <mise_stub_file>" >&2
+    echo "Example: $0 tool.toml" >&2
+    echo "Example: $0 --platforms linux-x64,darwin-arm64 tool.toml" >&2
+    echo "" >&2
+    echo "Required environment variables:" >&2
+    echo "  MISE_OCI_REGISTRY    - Registry host (e.g., docker.io)" >&2
+    echo "  MISE_OCI_REPOSITORY  - Repository path (e.g., jbadeau/tools)" >&2
+    echo "Optional environment variables:" >&2
+    echo "  MISE_OCI_USERNAME    - Registry username" >&2
+    echo "  MISE_OCI_PASSWORD    - Registry password" >&2
     exit 1
   fi
 
   mise_stub_file_arg="$1"
-  registry_namespace="$2"
-
-  # Split registry/namespace - require both parts
-  if [[ "$registry_namespace" == *"/"* ]]; then
-    registry="${registry_namespace%%/*}"
-    namespace="${registry_namespace#*/}"
-  else
-    echo "❌ Registry/namespace must be in format 'registry/namespace'" >&2
-    echo "Example: docker.io/username" >&2
-    exit 1
-  fi
 
   if [[ ! -f "$mise_stub_file_arg" ]]; then
     echo "❌ File not found: $mise_stub_file_arg" >&2
@@ -299,32 +311,6 @@ create_mta_config() {
     fi
   done < <(tomlq -r '.platforms | keys[]' "$mise_stub_file")
 
-  # Generate env vars based on tool type
-  local env_json='{}'
-  case "$image_name_base" in
-    *java*|*jdk*|*zulu*|*temurin*|*corretto*|*graalvm*)
-      env_json='{"JAVA_HOME": "{{ install_path }}"}'
-      ;;
-    *node*)
-      env_json='{"NODE_HOME": "{{ install_path }}"}'
-      ;;
-    *go|golang)
-      env_json='{"GOROOT": "{{ install_path }}"}'
-      ;;
-    *maven*)
-      env_json='{"M2_HOME": "{{ install_path }}", "MAVEN_HOME": "{{ install_path }}"}'
-      ;;
-    *gradle*)
-      env_json='{"GRADLE_HOME": "{{ install_path }}"}'
-      ;;
-    *python*)
-      env_json='{"PYTHONHOME": "{{ install_path }}"}'
-      ;;
-    *)
-      env_json='{}'
-      ;;
-  esac
-
   # Generate MTA config JSON
   jq -n \
     --arg tool "$image_name_base" \
@@ -334,7 +320,6 @@ create_mta_config() {
     --arg license "$license" \
     --arg category "runtime" \
     --argjson platforms "$platforms_json" \
-    --argjson env "$env_json" \
     --arg created "$created" \
     '{
       mtaSpecVersion: "1.0",
@@ -345,14 +330,6 @@ create_mta_config() {
       license: $license,
       category: $category,
       platforms: $platforms,
-      env: $env,
-      post_install: [
-        "chmod +x {{ install_path }}/bin/*"
-      ],
-      validation: {
-        command: ($tool | if test("java|jdk|zulu") then "java -version" else ($tool + " --version") end),
-        expected_output_regex: ".*"
-      },
       metadata: {
         backends: ["http", "asdf"],
         source: "",
