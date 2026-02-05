@@ -72,7 +72,7 @@ function PLUGIN:BackendInstall(ctx)
 
   -- First, get the manifest to find the correct layer for our platform
   local manifest_file = temp_dir .. "/manifest.json"
-  local manifest_cmd = string.format("oras manifest fetch --no-tty %s > %s 2>&1",
+  local manifest_cmd = string.format("oras manifest fetch %s > %s 2>&1",
     oci_ref, manifest_file)
   local manifest_result = os.execute(manifest_cmd)
 
@@ -114,7 +114,7 @@ function PLUGIN:BackendInstall(ctx)
 
   -- Pull only the specific layer and config we need
   local repo_digest = oci_ref:match("^(.+):")
-  local pull_cmd = string.format("oras blob fetch --no-tty %s@%s --output %s/blob.tar.gz",
+  local pull_cmd = string.format("oras blob fetch %s@%s --output %s/blob.tar.gz",
     repo_digest, layer_digest, temp_dir)
   local pull_result = os.execute(pull_cmd)
 
@@ -134,7 +134,7 @@ function PLUGIN:BackendInstall(ctx)
     -- Extract repo without tag for blob fetch
     local repo = oci_ref:match("^(.+):")
     local config_file = temp_dir .. "/mta_config.json"
-    local config_cmd = string.format("oras blob fetch --no-tty %s@%s --output %s 2>/dev/null",
+    local config_cmd = string.format("oras blob fetch %s@%s --output %s 2>/dev/null",
       repo, config_digest, config_file)
     os.execute(config_cmd)
     mta_config = read_file(config_file)
