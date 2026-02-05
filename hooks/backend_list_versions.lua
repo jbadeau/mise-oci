@@ -38,7 +38,7 @@ function PLUGIN:BackendListVersions(ctx)
   local temp_file = string.format("/tmp/oci_tags_%d_%d.txt", os.time(), math.random(100000, 999999))
 
   -- Use oras to list tags from the OCI registry for MTA artifacts
-  local cmd = string.format("oras repo tags --no-tty %s > %s 2>&1",
+  local cmd = string.format("oras repo tags %s > %s 2>&1",
     registry_url, temp_file)
   local result = os.execute(cmd)
 
