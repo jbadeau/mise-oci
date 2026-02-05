@@ -6,7 +6,7 @@ python = "latest"
 yq = "latest"
 
 [tasks.init]
-description = "Init"
+description = "Initialize"
 run = "mise plugin link oci $PWD --force"
 
 [settings]
