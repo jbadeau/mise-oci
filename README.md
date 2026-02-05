@@ -48,7 +48,7 @@ In `.mise.toml`:
 
 ## Publishing Tools
 
-See [example/README.md](example/README.md) for publishing tools and [example/SPECIFICATION.md](example/SPECIFICATION.md) for the MTA specification.
+See [example/README.md](example/README.md) for publishing tools and [SPECIFICATION.md](https://github.com/jbadeau/mise-tool-artifact-specification) for the MTA specification.
 
 ## Troubleshooting
 
