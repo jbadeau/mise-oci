@@ -1,0 +1,19 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "which-key-nvim"
+version = "3.17.0"
+
+[platforms.linux-x64]
+url = "https://github.com/folke/which-key.nvim/archive/refs/tags/v3.17.0.tar.gz"
+checksum = "blake3:8ff3a127c9827acb66856e6ba8115702c620d55ed9b045fd29586d63e8bb525e"
+size = 73539 # 71.82 KiB
+
+[platforms.darwin-arm64]
+url = "https://github.com/folke/which-key.nvim/archive/refs/tags/v3.17.0.tar.gz"
+checksum = "blake3:8ff3a127c9827acb66856e6ba8115702c620d55ed9b045fd29586d63e8bb525e"
+size = 73539 # 71.82 KiB
+
+[platforms.windows-x64]
+url = "https://github.com/folke/which-key.nvim/archive/refs/tags/v3.17.0.tar.gz"
+checksum = "blake3:8ff3a127c9827acb66856e6ba8115702c620d55ed9b045fd29586d63e8bb525e"
+size = 73539 # 71.82 KiB

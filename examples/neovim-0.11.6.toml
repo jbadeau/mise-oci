@@ -1,0 +1,20 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "neovim"
+version = "0.11.6"
+bin = "bin/nvim"
+
+[platforms.linux-x64]
+url = "https://github.com/neovim/neovim/releases/download/v0.11.6/nvim-linux-x86_64.tar.gz"
+checksum = "blake3:0d8411c51523bbb8589b8c3e00ea6b48608687c78cef5e46720cfd93d38dbf56"
+size = 10967842 # 10.46 MiB
+
+[platforms.darwin-arm64]
+url = "https://github.com/neovim/neovim/releases/download/v0.11.6/nvim-macos-arm64.tar.gz"
+checksum = "blake3:968ede6da99ef8ed11e0c7d752cdf19208806d28b21a0fd823cc9c69005257c1"
+size = 9207048 # 8.78 MiB
+
+[platforms.windows-x64]
+url = "https://github.com/neovim/neovim/releases/download/v0.11.6/nvim-win64.zip"
+checksum = "blake3:35b2accefee01b87dbf09ba10ceedd5c9cceac28e46b3d4d8b4f281dd8d33e02"
+size = 12255595 # 11.69 MiB

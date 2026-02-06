@@ -1,0 +1,19 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "playwright-chromium"
+version = "145.0.7632.18"
+
+[platforms.linux-x64]
+url = "https://storage.googleapis.com/chrome-for-testing-public/145.0.7632.18/linux64/chrome-linux64.zip"
+checksum = "blake3:3302650e05a28624cb27071b240c2e91ef927d609a4f38e7bdddda04457166c2"
+size = 175889478 # 167.74 MiB
+
+[platforms.darwin-arm64]
+url = "https://storage.googleapis.com/chrome-for-testing-public/145.0.7632.18/mac-arm64/chrome-mac-arm64.zip"
+checksum = "blake3:d0c327bcdb157464fe9be1735082c1d29fd7ac2f42a857a814a80872fb8c27a1"
+size = 169821499 # 161.95 MiB
+
+[platforms.windows-x64]
+url = "https://storage.googleapis.com/chrome-for-testing-public/145.0.7632.18/win64/chrome-win64.zip"
+checksum = "blake3:10b1ee50183f39e0f489847c75fb87698037d876cfedf4d67fb7d412658d2c63"
+size = 181506875 # 173.10 MiB

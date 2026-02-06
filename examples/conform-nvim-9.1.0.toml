@@ -1,0 +1,19 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "conform-nvim"
+version = "9.1.0"
+
+[platforms.linux-x64]
+url = "https://github.com/stevearc/conform.nvim/archive/refs/tags/v9.1.0.tar.gz"
+checksum = "blake3:9f39ed91550d1b3a0e5906164cd0777451ef18e562533112c9a04d83216843f4"
+size = 117674 # 114.92 KiB
+
+[platforms.darwin-arm64]
+url = "https://github.com/stevearc/conform.nvim/archive/refs/tags/v9.1.0.tar.gz"
+checksum = "blake3:9f39ed91550d1b3a0e5906164cd0777451ef18e562533112c9a04d83216843f4"
+size = 117674 # 114.92 KiB
+
+[platforms.windows-x64]
+url = "https://github.com/stevearc/conform.nvim/archive/refs/tags/v9.1.0.tar.gz"
+checksum = "blake3:9f39ed91550d1b3a0e5906164cd0777451ef18e562533112c9a04d83216843f4"
+size = 117674 # 114.92 KiB

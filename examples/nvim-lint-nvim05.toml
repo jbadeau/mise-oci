@@ -1,0 +1,19 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "nvim-lint"
+version = "nvim-05"
+
+[platforms.linux-x64]
+url = "https://github.com/mfussenegger/nvim-lint/archive/refs/tags/nvim-05.tar.gz"
+checksum = "blake3:a5753c1b979f07fcf2b228aa586da6fe694dc0a628e7930f918f6776b583faa3"
+size = 19791 # 19.33 KiB
+
+[platforms.darwin-arm64]
+url = "https://github.com/mfussenegger/nvim-lint/archive/refs/tags/nvim-05.tar.gz"
+checksum = "blake3:a5753c1b979f07fcf2b228aa586da6fe694dc0a628e7930f918f6776b583faa3"
+size = 19791 # 19.33 KiB
+
+[platforms.windows-x64]
+url = "https://github.com/mfussenegger/nvim-lint/archive/refs/tags/nvim-05.tar.gz"
+checksum = "blake3:a5753c1b979f07fcf2b228aa586da6fe694dc0a628e7930f918f6776b583faa3"
+size = 19791 # 19.33 KiB

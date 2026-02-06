@@ -1,0 +1,19 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "playwright-firefox"
+version = "146.0.1"
+
+[platforms.linux-x64]
+url = "https://cdn.playwright.dev/dbazure/download/playwright/builds/firefox/1509/firefox-ubuntu-22.04.zip"
+checksum = "blake3:ff1c5b381ff659bbb81421d025017f0f8f2680beb36a3910cbb5603d8cc6fef5"
+size = 104293553 # 99.46 MiB
+
+[platforms.darwin-arm64]
+url = "https://cdn.playwright.dev/dbazure/download/playwright/builds/firefox/1509/firefox-mac-arm64.zip"
+checksum = "blake3:3ec3990ab112b4e5cabf3ec8412f70c733b83ad7741c51afe91308d2c64bd231"
+size = 97750431 # 93.22 MiB
+
+[platforms.windows-x64]
+url = "https://cdn.playwright.dev/dbazure/download/playwright/builds/firefox/1509/firefox-win64.zip"
+checksum = "blake3:2bf1c2541ad5cdeb9926936634f9060c6bbfdd5103fd0090e725d679f97a593c"
+size = 115583551 # 110.23 MiB

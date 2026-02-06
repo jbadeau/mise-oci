@@ -1,0 +1,19 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "playwright-webkit"
+version = "26.0"
+
+[platforms.linux-x64]
+url = "https://cdn.playwright.dev/dbazure/download/playwright/builds/webkit/2255/webkit-ubuntu-24.04.zip"
+checksum = "blake3:af9a8608c42009f320cebe414f171e3ed6d1b6bda42c7080636fe85ec80fb8d1"
+size = 104770162 # 99.92 MiB
+
+[platforms.darwin-arm64]
+url = "https://cdn.playwright.dev/dbazure/download/playwright/builds/webkit/2255/webkit-mac-15-arm64.zip"
+checksum = "blake3:8d0a1316efb60be1b2382262ab2c1eada24801dd9be2e34ac72dc55008482e5a"
+size = 77526570 # 73.94 MiB
+
+[platforms.windows-x64]
+url = "https://cdn.playwright.dev/dbazure/download/playwright/builds/webkit/2255/webkit-win64.zip"
+checksum = "blake3:857d8d7714f27841119fcb75e61ef4a18a9f3c5148da3d0ac0894b225362931b"
+size = 61807074 # 58.94 MiB

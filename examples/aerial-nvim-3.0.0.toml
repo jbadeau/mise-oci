@@ -1,0 +1,19 @@
+#!/usr/bin/env -S mise tool-stub
+
+tool = "aerial-nvim"
+version = "3.0.0"
+
+[platforms.linux-x64]
+url = "https://github.com/stevearc/aerial.nvim/archive/refs/tags/v3.0.0.tar.gz"
+checksum = "blake3:84c35b2a5a15f97ab8818e019e7ae77d4f2966c2f4a52167a3885ca8d5b3ea22"
+size = 139010 # 135.75 KiB
+
+[platforms.darwin-arm64]
+url = "https://github.com/stevearc/aerial.nvim/archive/refs/tags/v3.0.0.tar.gz"
+checksum = "blake3:84c35b2a5a15f97ab8818e019e7ae77d4f2966c2f4a52167a3885ca8d5b3ea22"
+size = 139010 # 135.75 KiB
+
+[platforms.windows-x64]
+url = "https://github.com/stevearc/aerial.nvim/archive/refs/tags/v3.0.0.tar.gz"
+checksum = "blake3:84c35b2a5a15f97ab8818e019e7ae77d4f2966c2f4a52167a3885ca8d5b3ea22"
+size = 139010 # 135.75 KiB
