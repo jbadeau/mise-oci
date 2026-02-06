@@ -2,6 +2,10 @@
 
 tool = "which-key-nvim"
 version = "3.17.0"
+category = "nvim-plugin"
+
+[env]
+NVIM_MISE_PLUGINS = "{{ install_path }}:{{ NVIM_MISE_PLUGINS }}"
 
 [platforms.linux-x64]
 url = "https://github.com/folke/which-key.nvim/archive/refs/tags/v3.17.0.tar.gz"

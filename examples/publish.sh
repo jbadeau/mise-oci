@@ -311,6 +311,13 @@ create_mta_config() {
     fi
   done < <(tomlq -r '.platforms | keys[]' "$mise_stub_file")
 
+  # Extract category and env from stub
+  local category_value
+  category_value=$(tomlq -r '.category // "runtime"' "$mise_stub_file")
+
+  local env_json
+  env_json=$(tomlq -r '.env // {}' "$mise_stub_file")
+
   # Generate MTA config JSON
   jq -n \
     --arg tool "$image_name_base" \
@@ -318,8 +325,9 @@ create_mta_config() {
     --arg description "$description" \
     --arg homepage "$url" \
     --arg license "$license" \
-    --arg category "runtime" \
+    --arg category "$category_value" \
     --argjson platforms "$platforms_json" \
+    --argjson env "$env_json" \
     --arg created "$created" \
     '{
       mtaSpecVersion: "1.0",
@@ -330,6 +338,7 @@ create_mta_config() {
       license: $license,
       category: $category,
       platforms: $platforms,
+      env: $env,
       metadata: {
         backends: ["http", "asdf"],
         source: "",

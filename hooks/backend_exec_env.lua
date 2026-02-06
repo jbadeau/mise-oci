@@ -20,9 +20,19 @@ function PLUGIN:BackendExecEnv(ctx)
       for line in jq_handle:lines() do
         local key, value = line:match("^([^=]+)=(.*)$")
         if key and value then
-          -- Template substitution
+          -- Template substitution for install_path
           value = value:gsub("{{%s*install_path%s*}}", install_path)
-          value = value:gsub("{{%s*PATH%s*}}", os.getenv("PATH") or "")
+
+          -- Template substitution for any env var reference like {{ VAR_NAME }}
+          value = value:gsub("{{%s*([%w_]+)%s*}}", function(var_name)
+            return os.getenv(var_name) or ""
+          end)
+
+          -- Clean up empty path segments (from undefined env vars)
+          value = value:gsub(":+", ":")
+          value = value:gsub("^:", "")
+          value = value:gsub(":$", "")
+
           -- Skip PATH entries (already handled above)
           if key ~= "PATH" then
             table.insert(env_vars, { key = key, value = value })

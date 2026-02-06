@@ -2,7 +2,8 @@
 
 A [Mise](https://github.com/jdx/mise) backend plugin for installing tools from OCI registries.
 
-> **⚠️ Under heavy development** - expect breaking changes until v1.0.
+> **Warning**
+> This plugin is under active development and is considered unstable. APIs, configuration options, and behavior may change without notice. Use at your own risk.
 
 ## Installation
 
