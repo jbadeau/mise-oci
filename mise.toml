@@ -1,6 +1,7 @@
 [tools]
 lua = "latest"
 oras = "latest"
+jq = "latest"
 yq = "latest"
 
 [tasks.init]
