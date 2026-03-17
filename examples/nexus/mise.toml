@@ -1,0 +1,13 @@
+[plugins]
+oci = "https://github.com/jbadeau/mise-oci.git"
+
+[env]
+MISE_OCI_REGISTRY = "localhost:5000"
+MISE_OCI_REPOSITORY = "tools"
+MISE_OCI_INSECURE = "true"
+
+[tools]
+"oci:java" = "17.64.17"
+
+[settings]
+experimental = true

@@ -1,3 +1,5 @@
+local cmd = require("cmd")
+
 -- Check required environment variables
 local function check_required_env()
   local required = {
@@ -18,57 +20,54 @@ end
 -- Expand short tool name to full OCI reference using env vars
 local function expand_oci_ref(tool)
   check_required_env()
-
-  -- If already contains registry/namespace (has /), use as-is
   if tool:find("/") then
     return tool
   end
-
   local registry = os.getenv("MISE_OCI_REGISTRY")
   local repository = os.getenv("MISE_OCI_REPOSITORY")
-
   return registry .. "/" .. repository .. "/" .. tool
 end
 
+-- Build oras flags string
+local function oras_flags()
+  if os.getenv("MISE_OCI_INSECURE") == "true" then
+    return "--insecure "
+  end
+  return ""
+end
+
+-- Check if a tag is a platform-specific tag (e.g., "17.60.17-linux-amd64")
+local function is_platform_tag(tag)
+  local platform_suffixes = {
+    "%-linux%-amd64$", "%-linux%-arm64$", "%-linux%-arm$", "%-linux%-386$",
+    "%-darwin%-amd64$", "%-darwin%-arm64$",
+    "%-windows%-amd64$", "%-windows%-arm64$", "%-windows%-386$"
+  }
+  for _, pattern in ipairs(platform_suffixes) do
+    if tag:match(pattern) then
+      return true
+    end
+  end
+  return false
+end
+
 function PLUGIN:BackendListVersions(ctx)
-  -- ctx.tool contains the OCI reference like "docker.io/jbadeau/azul-zulu" or short name like "pnpm"
   local registry_url = expand_oci_ref(ctx.tool)
+  local flags = oras_flags()
 
-  -- Create unique temp file for output
-  local temp_file = string.format("/tmp/oci_tags_%d_%d.txt", os.time(), math.random(100000, 999999))
-
-  -- Use oras to list tags from the OCI registry for MTA artifacts
-  local cmd = string.format("oras repo tags %s > %s 2>&1",
-    registry_url, temp_file)
-  local result = os.execute(cmd)
-
-  -- Check if oras command succeeded
-  if result ~= 0 then
-    -- Read error output for debugging
-    local err_file = io.open(temp_file, "r")
-    local err_msg = err_file and err_file:read("*all") or "oras command failed"
-    if err_file then err_file:close() end
-    os.remove(temp_file)
-    -- Log error but return empty versions (mise will show "No versions found" warning)
-    io.stderr:write("mise-oci: Failed to list tags for " .. registry_url .. ": " .. (err_msg or "unknown error") .. "\n")
+  local ok, output = pcall(cmd.exec, "oras repo tags " .. flags .. registry_url)
+  if not ok then
+    io.stderr:write("mise-oci: Failed to list tags for " .. registry_url .. ": " .. tostring(output) .. "\n")
     return { versions = {} }
   end
 
   local versions = {}
-  local f = io.open(temp_file, "r")
-  if f then
-    for line in f:lines() do
-      -- Skip empty lines and add versions
-      if line and line:match("%S") then
-        local version = line:match("^%s*(.-)%s*$") -- trim whitespace
-        table.insert(versions, version)
-      end
+  for line in output:gmatch("[^\r\n]+") do
+    local tag = line:match("^%s*(.-)%s*$")
+    if tag and tag ~= "" and not is_platform_tag(tag) then
+      table.insert(versions, tag)
     end
-    f:close()
   end
-
-  -- Clean up temp file
-  os.remove(temp_file)
 
   -- Sort versions in reverse order (newest first)
   table.sort(versions, function(a, b) return a > b end)
