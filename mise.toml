@@ -1,8 +1,6 @@
 [tools]
-go = "latest"
 lua = "latest"
 oras = "latest"
-python = "latest"
 yq = "latest"
 
 [tasks.init]
