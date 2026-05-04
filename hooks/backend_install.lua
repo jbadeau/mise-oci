@@ -2,6 +2,18 @@ local cmd = require("cmd")
 local json = require("json")
 local file = require("file")
 
+-- Resolve full path to oras via mise
+local function oras_bin()
+  local ok, path = pcall(cmd.exec, "mise which oras")
+  if ok and path then
+    path = path:match("^%s*(.-)%s*$")
+    if path ~= "" then
+      return path
+    end
+  end
+  error("mise-oci requires 'oras'. Install it with mise.")
+end
+
 -- Check required environment variables
 local function check_required_env()
   local required = {
@@ -63,7 +75,9 @@ function PLUGIN:BackendInstall(ctx)
   local arch = detect_arch()
 
   -- Step 1: Fetch the OCI Image Index
-  local index_raw = cmd.exec("oras manifest fetch " .. flags .. oci_ref)
+  local oras = oras_bin()
+
+  local index_raw = cmd.exec(oras .. " manifest fetch " .. flags .. oci_ref)
   local index = json.decode(index_raw)
 
   -- Step 2: Find matching platform manifest from the Image Index
@@ -81,7 +95,7 @@ function PLUGIN:BackendInstall(ctx)
   end
 
   -- Step 3: Fetch the platform-specific manifest
-  local manifest_raw = cmd.exec("oras manifest fetch " .. flags .. tool .. "@" .. manifest_digest)
+  local manifest_raw = cmd.exec(oras .. " manifest fetch " .. flags .. tool .. "@" .. manifest_digest)
   local manifest = json.decode(manifest_raw)
 
   -- Step 4: Get config and layer digests
@@ -96,7 +110,7 @@ function PLUGIN:BackendInstall(ctx)
   local mta_config = nil
   if config_digest then
     local config_file = file.join_path(download_path, "mta_config.json")
-    cmd.exec("oras blob fetch " .. flags .. tool .. "@" .. config_digest .. " --output " .. config_file)
+    cmd.exec(oras .. " blob fetch " .. flags .. tool .. "@" .. config_digest .. " --output " .. config_file)
     local f = io.open(config_file, "r")
     if f then
       mta_config = f:read("*all")
@@ -107,7 +121,7 @@ function PLUGIN:BackendInstall(ctx)
   -- Step 6: Fetch the payload layer
   local layer_media_type = manifest.layers[1].mediaType or ""
   local layer_file = file.join_path(download_path, "payload")
-  cmd.exec("oras blob fetch " .. flags .. tool .. "@" .. layer_digest .. " --output " .. layer_file)
+  cmd.exec(oras .. " blob fetch " .. flags .. tool .. "@" .. layer_digest .. " --output " .. layer_file)
 
   -- Parse config for stripComponents
   local strip = 0

@@ -1,5 +1,17 @@
 local cmd = require("cmd")
 
+-- Resolve full path to oras via mise
+local function oras_bin()
+  local ok, path = pcall(cmd.exec, "mise which oras")
+  if ok and path then
+    path = path:match("^%s*(.-)%s*$")
+    if path ~= "" then
+      return path
+    end
+  end
+  error("mise-oci requires 'oras'. Install it with mise.")
+end
+
 -- Check required environment variables
 local function check_required_env()
   local required = {
@@ -55,7 +67,7 @@ function PLUGIN:BackendListVersions(ctx)
   local registry_url = expand_oci_ref(ctx.tool)
   local flags = oras_flags()
 
-  local ok, output = pcall(cmd.exec, "oras repo tags " .. flags .. registry_url)
+  local ok, output = pcall(cmd.exec, oras_bin() .. " repo tags " .. flags .. registry_url)
   if not ok then
     io.stderr:write("mise-oci: Failed to list tags for " .. registry_url .. ": " .. tostring(output) .. "\n")
     return { versions = {} }
